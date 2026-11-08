@@ -177,7 +177,115 @@
     </footer>
   </div>
 
-  <div id="toast-region" class="pointer-events-none fixed inset-x-0 bottom-5 z-40 flex justify-center px-4" role="status" aria-live="polite"></div>
+  <!-- ============ SETTINGS DIALOG ============ -->
+  <dialog id="settings-dialog" aria-labelledby="settings-title"
+    class="m-auto max-h-[88dvh] w-[min(calc(100%-2rem),34rem)] overflow-y-auto rounded-[22px] border border-line bg-raised p-0 text-ink shadow-2xl">
+    <div class="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-raised px-5 py-3 sm:px-6">
+      <h2 id="settings-title" class="text-lg font-semibold">Settings</h2>
+      <form method="dialog">
+        <button class="icon-btn" aria-label="Close settings">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </form>
+    </div>
+
+    <div class="space-y-8 px-5 py-6 sm:px-6">
+      <fieldset class="space-y-3">
+        <legend class="mb-3 font-semibold">Clock and theme</legend>
+        <label class="block text-sm text-ink-soft">Time format
+          <select class="field mt-1 text-base" data-setting="clock24h">
+            <option value="auto">Follow my device</option>
+            <option value="12">12-hour</option>
+            <option value="24">24-hour</option>
+          </select>
+        </label>
+        <label class="block text-sm text-ink-soft">Theme
+          <select class="field mt-1 text-base" data-setting="theme">
+            <option value="system">Follow my device</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </label>
+      </fieldset>
+
+      <fieldset class="space-y-3">
+        <legend class="mb-3 font-semibold">Your day</legend>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="block text-sm text-ink-soft">Day starts
+            <select id="set-day-start" class="field mt-1 text-base" data-setting="dayStart"></select>
+          </label>
+          <label class="block text-sm text-ink-soft">Day ends
+            <select id="set-day-end" class="field mt-1 text-base" data-setting="dayEnd"></select>
+          </label>
+        </div>
+        <label class="block text-sm text-ink-soft">Timeline steps
+          <select class="field mt-1 text-base" data-setting="slotMinutes">
+            <option value="15">Every 15 minutes</option>
+            <option value="30">Every 30 minutes</option>
+            <option value="60">Every hour</option>
+          </select>
+        </label>
+      </fieldset>
+
+      <fieldset class="space-y-3">
+        <legend class="mb-3 font-semibold">Focus timer (minutes)</legend>
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <label class="block text-sm text-ink-soft">Focus
+            <input type="number" inputmode="numeric" min="1" max="120" class="field mt-1 text-base tabular-nums" data-setting="pomodoro.focus">
+          </label>
+          <label class="block text-sm text-ink-soft">Short break
+            <input type="number" inputmode="numeric" min="1" max="30" class="field mt-1 text-base tabular-nums" data-setting="pomodoro.short">
+          </label>
+          <label class="block text-sm text-ink-soft">Long break
+            <input type="number" inputmode="numeric" min="1" max="60" class="field mt-1 text-base tabular-nums" data-setting="pomodoro.long">
+          </label>
+          <label class="block text-sm text-ink-soft">Long break after
+            <input type="number" inputmode="numeric" min="2" max="8" class="field mt-1 text-base tabular-nums" data-setting="pomodoro.longEvery" aria-describedby="long-every-help">
+          </label>
+        </div>
+        <p id="long-every-help" class="text-sm text-ink-soft">"Long break after" counts focus sessions. New lengths apply from the next session.</p>
+        <label class="flex min-h-11 items-center gap-3">
+          <input type="checkbox" class="size-5 accent-[var(--color-calm)]" data-setting="pomodoro.autoStart">
+          <span>Start the next session automatically</span>
+        </label>
+        <label class="flex min-h-11 items-center gap-3">
+          <input type="checkbox" class="size-5 accent-[var(--color-calm)]" data-setting="sound">
+          <span>Play a chime when a session ends</span>
+        </label>
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <button id="notif-btn" type="button" class="btn shrink-0">Enable notifications</button>
+          <p id="notif-status" class="text-sm text-ink-soft"></p>
+        </div>
+      </fieldset>
+
+      <fieldset class="space-y-3">
+        <legend class="mb-3 font-semibold">Background</legend>
+        <label class="flex min-h-11 items-center gap-3">
+          <input type="checkbox" class="size-5 accent-[var(--color-calm)]" data-setting="rain">
+          <span>Animated background</span>
+        </label>
+      </fieldset>
+
+      <fieldset class="space-y-3">
+        <legend class="mb-3 font-semibold">Your data</legend>
+        <p class="text-sm text-ink-soft">Everything is saved in this browser on this device only. Download a backup to keep it safe or to move it to another browser.</p>
+        <div class="flex flex-wrap gap-2">
+          <button id="export-btn" type="button" class="btn">Download backup</button>
+          <button id="import-btn" type="button" class="btn">Restore from backup…</button>
+          <input id="import-file" type="file" accept="application/json,.json" class="sr-only" tabindex="-1" aria-hidden="true">
+        </div>
+        <div class="rounded-2xl border border-line p-4">
+          <label for="reset-confirm" class="block text-sm text-ink-soft">To delete all tasks, blocks and settings, type <strong class="text-ink">RESET</strong></label>
+          <div class="mt-2 flex gap-2">
+            <input id="reset-confirm" type="text" autocomplete="off" class="field" spellcheck="false">
+            <button id="reset-btn" type="button" class="btn shrink-0 text-hot" disabled>Delete all</button>
+          </div>
+        </div>
+      </fieldset>
+    </div>
+  </dialog>
+
+  <div id="toast-region"class="pointer-events-none fixed inset-x-0 bottom-5 z-40 flex justify-center px-4" role="status" aria-live="polite"></div>
   <div id="announcer" class="sr-only" aria-live="polite"></div>
 
   <script>
@@ -187,25 +295,376 @@
   const $ = (sel, root = document) => root.querySelector(sel);
   const pad = (n) => String(n).padStart(2, '0');
 
+  const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+  const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+
   /** Local calendar day as YYYY-MM-DD. Never use toISOString() for this: it is UTC. */
   function dayKey(d = new Date()) {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   }
+  function dateFromKey(key) {
+    const [y, m, d] = key.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }
+
+  /** 'HH:MM' <-> minutes since midnight ('24:00' = 1440 is allowed as an end time). */
+  const TIME_RE = /^([01]\d|2[0-4]):([0-5]\d)$/;
+  function toMin(hhmm) { const [h, m] = hhmm.split(':').map(Number); return h * 60 + m; }
+  function fromMin(min) { return `${pad(Math.floor(min / 60))}:${pad(min % 60)}`; }
+
+  /** Display a minute-of-day in the user's clock style (12h / 24h / locale). */
+  function fmtMin(min) {
+    const pref = Store.state.settings.clock24h;
+    const opts = { hour: pref === true ? '2-digit' : 'numeric', minute: '2-digit' };
+    if (pref !== null) opts.hour12 = !pref;
+    const d = new Date(2000, 0, 1, Math.floor(min / 60), min % 60);
+    return new Intl.DateTimeFormat(undefined, opts).format(d);
+  }
+
+  function uid(prefix) {
+    const id = (window.crypto && crypto.randomUUID)
+      ? crypto.randomUUID().replace(/-/g, '').slice(0, 12)
+      : Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    return `${prefix}_${id}`;
+  }
+
+  /** Small DOM builder. User text always goes in as text, never as HTML. */
+  const PROP_KEYS = new Set(['checked', 'value', 'disabled', 'hidden', 'selected', 'htmlFor', 'type', 'tabIndex']);
+  function el(tag, props = {}, ...children) {
+    const node = document.createElement(tag);
+    for (const [k, v] of Object.entries(props)) {
+      if (v === undefined || v === null || v === false) continue;
+      if (k === 'class') node.className = v;
+      else if (k === 'text') node.textContent = v;
+      else if (k === 'dataset') Object.assign(node.dataset, v);
+      else if (k.startsWith('on') && typeof v === 'function') node.addEventListener(k.slice(2), v);
+      else if (PROP_KEYS.has(k)) node[k] = v;
+      else node.setAttribute(k, v === true ? '' : String(v));
+    }
+    for (const c of children.flat()) {
+      if (c === null || c === undefined || c === false) continue;
+      node.append(c instanceof Node ? c : document.createTextNode(String(c)));
+    }
+    return node;
+  }
+
+  /** Inline SVG icons (static, trusted markup). */
+  const ICONS = {
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+    pencil: '<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/>',
+    trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+    up: '<path d="M12 19V5M6 11l6-6 6 6"/>',
+    down: '<path d="M12 5v14M6 13l6 6 6-6"/>',
+    play: '<path d="M8 5.5v13l11-6.5z"/>',
+    pause: '<path d="M8 5v14M16 5v14"/>',
+    reset: '<path d="M4 12a8 8 0 1 0 2.5-5.8M4 4v4h4"/>',
+    skip: '<path d="M6 5l10 7-10 7zM18 5v14"/>',
+    target: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>',
+    close: '<path d="M6 6l12 12M18 6L6 18"/>',
+  };
+  function icon(name, size = 18) {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', size); svg.setAttribute('height', size);
+    svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor'); svg.setAttribute('stroke-width', '1.8');
+    svg.setAttribute('stroke-linecap', 'round'); svg.setAttribute('stroke-linejoin', 'round');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.innerHTML = ICONS[name];
+    return svg;
+  }
+
+  /** Screen-reader announcements (polite). */
+  function announce(message) {
+    const node = $('#announcer');
+    node.textContent = '';
+    setTimeout(() => { node.textContent = message; }, 50);
+  }
+
+  /** One toast at a time, bottom centre, optional action (e.g. Undo). */
+  const Toast = (() => {
+    let hideTimer = 0;
+    function show(message, { actionLabel, onAction, duration = 5000 } = {}) {
+      const region = $('#toast-region');
+      clearTimeout(hideTimer);
+      region.replaceChildren();
+      const box = el('div', { class: 'pointer-events-auto flex max-w-md items-center gap-3 rounded-2xl border border-line bg-raised px-4 py-3 text-sm shadow-2xl backdrop-blur-xl' },
+        el('span', { text: message }));
+      if (actionLabel) {
+        box.append(el('button', {
+          type: 'button',
+          class: 'shrink-0 rounded-lg px-2 py-1 font-semibold text-calm hover:underline',
+          text: actionLabel,
+          onclick: () => { clearTimeout(hideTimer); region.replaceChildren(); onAction && onAction(); },
+        }));
+      }
+      region.append(box);
+      hideTimer = setTimeout(() => region.replaceChildren(), duration);
+    }
+    return { show };
+  })();
+  const toast = (message, opts) => Toast.show(message, opts);
+
+  /** Persistent banners at the top of the app (storage problems, carry-over offer). */
+  const Banner = (() => {
+    function show(id, message, actions = []) {
+      hide(id);
+      const box = el('div', {
+        id: `banner-${id}`, role: 'status',
+        class: 'flex flex-col gap-3 rounded-2xl border border-line bg-surface px-4 py-3 text-sm backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between',
+      }, el('p', { text: message }));
+      if (actions.length) {
+        box.append(el('div', { class: 'flex shrink-0 gap-2' },
+          actions.map((a) => el('button', {
+            type: 'button', class: a.primary ? 'btn btn-primary' : 'btn', text: a.label,
+            onclick: () => { a.onClick(); if (a.closes !== false) hide(id); },
+          }))));
+      }
+      $('#banners').append(box);
+    }
+    function hide(id) { const n = document.getElementById(`banner-${id}`); if (n) n.remove(); }
+    return { show, hide };
+  })();
 
   /* ============================== STORE ============================== */
-  // Temporary stub: only remembers the theme. Replaced by the full Store in step 3.
-  const Store = {
-    state: { settings: { theme: 'system', clock24h: null } },
-    load() {
+  /** The only code that touches localStorage (apart from the tiny no-flash theme script in <head>). */
+  const Store = (() => {
+    const KEY = 'tbd:v1';
+    const VERSION = 1;
+    const KEEP_DAYS = 90;
+    const COLORS = ['cyan', 'violet', 'pink', 'amber', 'emerald'];
+
+    const defaults = () => ({
+      version: VERSION,
+      settings: {
+        theme: 'system',
+        clock24h: null,
+        dayStart: '06:00',
+        dayEnd: '22:00',
+        slotMinutes: 30,
+        sound: true,
+        notifications: false,
+        rain: true,
+        pomodoro: { focus: 25, short: 5, long: 15, longEvery: 4, autoStart: false },
+      },
+      days: {},
+      pomodoro: { mode: 'focus', status: 'idle', endsAt: null, remainingMs: 25 * 60000, cycle: 0, label: '' },
+    });
+
+    let state = defaults();
+    let persistent = true;
+    let saveTimer = 0;
+    let quotaWarned = false;
+    const replaceListeners = new Set();
+
+    /** Copy saved values over defaults, keeping only values whose type matches. */
+    function fill(def, src) {
+      if (!isObj(src)) return def;
+      const out = { ...def };
+      for (const key of Object.keys(def)) {
+        if (!(key in src)) continue;
+        const d = def[key], s = src[key];
+        if (isObj(d) && Object.keys(d).length) out[key] = fill(d, s);
+        else if (isObj(d)) out[key] = isObj(s) ? s : d;
+        else if (d === null) out[key] = s;
+        else if (typeof d === typeof s) out[key] = s;
+      }
+      return out;
+    }
+
+    function migrate(s) {
+      // Future schema changes go here, e.g. if (s.version < 2) { ...; s.version = 2; }
+      s.version = VERSION;
+      return s;
+    }
+
+    function storageWorks() {
       try {
-        const raw = localStorage.getItem('tbd:v1');
-        if (raw) Object.assign(this.state.settings, JSON.parse(raw).settings || {});
-      } catch (e) { /* ignore in stub */ }
-    },
-    save() {
-      try { localStorage.setItem('tbd:v1', JSON.stringify(this.state)); } catch (e) { /* ignore in stub */ }
-    },
-  };
+        const probe = 'tbd:probe';
+        localStorage.setItem(probe, '1');
+        localStorage.removeItem(probe);
+        return true;
+      } catch (e) { return false; }
+    }
+
+    function goMemoryOnly() {
+      persistent = false;
+      Banner.show('storage', "Changes won't be saved in this browser mode. Your browser is blocking site storage for this page, so everything resets when you close it.");
+    }
+
+    function isQuotaError(e) {
+      return e && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED' || e.code === 22 || e.code === 1014);
+    }
+
+    function writeNow() {
+      clearTimeout(saveTimer);
+      saveTimer = 0;
+      if (!persistent) return;
+      try {
+        localStorage.setItem(KEY, JSON.stringify(state));
+        quotaWarned = false;
+      } catch (e) {
+        if (isQuotaError(e)) {
+          if (!quotaWarned) toast('Browser storage is full — export a backup in Settings.', { duration: 8000 });
+          quotaWarned = true;
+        } else {
+          goMemoryOnly();
+        }
+      }
+    }
+
+    function prune() {
+      const cutoff = dateFromKey(dayKey());
+      cutoff.setDate(cutoff.getDate() - KEEP_DAYS);
+      for (const key of Object.keys(state.days)) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(key) || dateFromKey(key) < cutoff) delete state.days[key];
+      }
+    }
+
+    function load() {
+      if (!storageWorks()) { goMemoryOnly(); return state; }
+      let raw = null;
+      try { raw = localStorage.getItem(KEY); } catch (e) { goMemoryOnly(); return state; }
+      if (raw) {
+        try {
+          state = migrate(fill(defaults(), JSON.parse(raw)));
+          for (const key of Object.keys(state.days)) state.days[key] = cleanDay(state.days[key]).day;
+        } catch (e) {
+          try { localStorage.setItem(`tbd:corrupt:${Date.now()}`, raw); } catch (_) { /* nothing more we can do */ }
+          state = defaults();
+          toast('Saved data could not be read, so the planner started fresh. A copy of the old data was kept in this browser.', { duration: 9000 });
+          writeNow();
+        }
+      }
+      prune();
+      return state;
+    }
+
+    function save() {
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(writeNow, 300);
+    }
+    function flush() { if (saveTimer) writeNow(); }
+
+    /** Validate one day's data. Drops anything malformed and reports how much was dropped. */
+    function cleanDay(input) {
+      let dropped = 0;
+      const day = { blocks: [], tasks: [], focusCount: 0 };
+      if (!isObj(input)) return { day, dropped: 1 };
+      for (const b of Array.isArray(input.blocks) ? input.blocks : []) {
+        const ok = isObj(b) && typeof b.id === 'string' && typeof b.title === 'string' && b.title.trim() &&
+          TIME_RE.test(b.start) && TIME_RE.test(b.end) && toMin(b.end) > toMin(b.start) && toMin(b.end) <= 1440;
+        if (!ok) { dropped++; continue; }
+        day.blocks.push({
+          id: b.id, title: b.title.slice(0, 80), start: b.start, end: b.end,
+          color: COLORS.includes(b.color) ? b.color : 'cyan',
+          note: typeof b.note === 'string' ? b.note.slice(0, 200) : '',
+        });
+      }
+      for (const t of Array.isArray(input.tasks) ? input.tasks : []) {
+        const ok = isObj(t) && typeof t.id === 'string' && typeof t.text === 'string' && t.text.trim();
+        if (!ok) { dropped++; continue; }
+        day.tasks.push({
+          id: t.id, text: t.text.slice(0, 200), done: t.done === true,
+          blockId: typeof t.blockId === 'string' ? t.blockId : null,
+          createdAt: Number.isFinite(t.createdAt) ? t.createdAt : Date.now(),
+          doneAt: Number.isFinite(t.doneAt) ? t.doneAt : null,
+        });
+      }
+      day.focusCount = Number.isInteger(input.focusCount) && input.focusCount >= 0 ? input.focusCount : 0;
+      return { day, dropped };
+    }
+
+    function day(key) {
+      if (!state.days[key]) state.days[key] = { blocks: [], tasks: [], focusCount: 0 };
+      return state.days[key];
+    }
+    function hasDay(key) { return Boolean(state.days[key]); }
+
+    function replace(next) {
+      state = next;
+      replaceListeners.forEach((fn) => fn());
+    }
+
+    /* ---- backup ---- */
+    function exportBackup() {
+      flush();
+      const payload = { app: 'time-blocking-dashboard', exportedAt: new Date().toISOString(), data: state };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = el('a', { href: url, download: `time-blocks-backup-${dayKey()}.json` });
+      document.body.append(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast('Backup downloaded.');
+    }
+
+    async function importBackup(file) {
+      let parsed;
+      try { parsed = JSON.parse(await file.text()); } catch (e) {
+        toast('That file is not a valid backup (it is not JSON).');
+        return false;
+      }
+      const data = isObj(parsed) && isObj(parsed.data) ? parsed.data : parsed;
+      if (!isObj(data) || !isObj(data.settings) || !isObj(data.days)) {
+        toast('That file is not a Time Blocking Dashboard backup.');
+        return false;
+      }
+      const next = migrate(fill(defaults(), data));
+      next.days = {};
+      let dropped = 0, tasks = 0, blocks = 0;
+      for (const [key, value] of Object.entries(data.days)) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) { dropped++; continue; }
+        const res = cleanDay(value);
+        next.days[key] = res.day;
+        dropped += res.dropped; tasks += res.day.tasks.length; blocks += res.day.blocks.length;
+      }
+      next.pomodoro = defaults().pomodoro; // a running timer from another time makes no sense
+      const days = Object.keys(next.days).length;
+      const summary = `This backup has ${days} day${days === 1 ? '' : 's'}, ${tasks} task${tasks === 1 ? '' : 's'} and ${blocks} block${blocks === 1 ? '' : 's'}` +
+        (dropped ? ` (${dropped} unreadable item${dropped === 1 ? '' : 's'} will be skipped)` : '') +
+        '.\n\nReplace everything in this browser with it?';
+      if (!window.confirm(summary)) return false;
+      replace(next);
+      writeNow();
+      toast('Backup imported.');
+      return true;
+    }
+
+    function reset() {
+      try { localStorage.removeItem(KEY); } catch (e) { /* memory-only mode */ }
+      replace(defaults());
+      writeNow();
+      toast('All data was deleted.');
+    }
+
+    /* ---- lifecycle ---- */
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) flush(); });
+    // Another tab changed the data: adopt it, so two tabs don't overwrite each other.
+    window.addEventListener('storage', (e) => {
+      if (e.key !== KEY) return;
+      clearTimeout(saveTimer); saveTimer = 0;
+      let next = defaults();
+      if (e.newValue) {
+        try {
+          next = migrate(fill(defaults(), JSON.parse(e.newValue)));
+          for (const key of Object.keys(next.days)) next.days[key] = cleanDay(next.days[key]).day;
+        } catch (_) { return; }
+      }
+      replace(next);
+    });
+
+    return {
+      get state() { return state; },
+      get persistent() { return persistent; },
+      COLORS,
+      load, save, flush, day, hasDay, prune,
+      exportBackup, importBackup, reset,
+      onReplace: (fn) => replaceListeners.add(fn),
+    };
+  })();
 
   /* ============================== THEME ============================== */
   const Theme = (() => {
@@ -306,10 +765,135 @@
     };
   })();
 
+  /* ============================== SETTINGS ============================== */
+  const Settings = (() => {
+    const listeners = new Set();
+    const RANGES = { 'pomodoro.focus': [1, 120], 'pomodoro.short': [1, 30], 'pomodoro.long': [1, 60], 'pomodoro.longEvery': [2, 8] };
+    const dialog = () => $('#settings-dialog');
+
+    function get(path) { return path.split('.').reduce((obj, k) => obj[k], Store.state.settings); }
+    function set(path, value) {
+      const keys = path.split('.');
+      const last = keys.pop();
+      keys.reduce((obj, k) => obj[k], Store.state.settings)[last] = value;
+      Store.save();
+      listeners.forEach((fn) => fn(path, value));
+    }
+
+    function buildHourSelects() {
+      const start = $('#set-day-start'), end = $('#set-day-end');
+      start.replaceChildren(); end.replaceChildren();
+      for (let h = 0; h <= 23; h++) start.append(el('option', { value: fromMin(h * 60), text: fmtMin(h * 60) }));
+      for (let h = 1; h <= 24; h++) end.append(el('option', { value: fromMin(h * 60), text: h === 24 ? 'Midnight' : fmtMin(h * 60) }));
+    }
+
+    function fillForm() {
+      buildHourSelects();
+      for (const input of dialog().querySelectorAll('[data-setting]')) {
+        const path = input.dataset.setting;
+        const value = get(path);
+        if (path === 'clock24h') input.value = value === null ? 'auto' : value ? '24' : '12';
+        else if (input.type === 'checkbox') input.checked = Boolean(value);
+        else input.value = String(value);
+      }
+      renderNotifications();
+      $('#reset-confirm').value = '';
+      $('#reset-btn').disabled = true;
+    }
+
+    function onChange(e) {
+      const input = e.target.closest('[data-setting]');
+      if (!input) return;
+      const path = input.dataset.setting;
+      let value;
+      if (path === 'clock24h') value = input.value === 'auto' ? null : input.value === '24';
+      else if (input.type === 'checkbox') value = input.checked;
+      else if (RANGES[path]) {
+        const n = parseInt(input.value, 10);
+        value = clamp(Number.isFinite(n) ? n : get(path), ...RANGES[path]);
+        input.value = String(value);
+      } else if (path === 'slotMinutes') value = Number(input.value);
+      else value = input.value;
+
+      if (path === 'dayStart' || path === 'dayEnd') {
+        const start = path === 'dayStart' ? value : get('dayStart');
+        const end = path === 'dayEnd' ? value : get('dayEnd');
+        if (toMin(end) - toMin(start) < 60) {
+          toast('The day must end at least one hour after it starts.');
+          input.value = get(path);
+          return;
+        }
+      }
+      set(path, value);
+      if (path === 'clock24h') { const s = $('#set-day-start').value, en = $('#set-day-end').value; buildHourSelects(); $('#set-day-start').value = s; $('#set-day-end').value = en; }
+    }
+
+    function renderNotifications() {
+      const btn = $('#notif-btn'), status = $('#notif-status');
+      if (!('Notification' in window)) {
+        btn.disabled = true;
+        status.textContent = 'This browser does not support notifications.';
+        return;
+      }
+      const permission = Notification.permission;
+      btn.disabled = false;
+      if (permission === 'denied') {
+        btn.disabled = true;
+        btn.textContent = 'Notifications blocked';
+        status.textContent = "Notifications are blocked for this site. Allow them in your browser's site settings to use them.";
+      } else if (permission === 'granted' && get('notifications')) {
+        btn.textContent = 'Turn off notifications';
+        status.textContent = 'You get a notification when a session ends.';
+      } else {
+        btn.textContent = 'Enable notifications';
+        status.textContent = 'Get a notification when a session ends, even in another tab.';
+      }
+    }
+
+    async function toggleNotifications() {
+      if (!('Notification' in window)) return;
+      if (Notification.permission === 'granted') {
+        set('notifications', !get('notifications'));
+      } else {
+        const result = await Notification.requestPermission();
+        set('notifications', result === 'granted');
+      }
+      renderNotifications();
+    }
+
+    function open() { fillForm(); dialog().showModal(); }
+
+    function init() {
+      $('#settings-btn').addEventListener('click', open);
+      dialog().addEventListener('change', onChange);
+      $('#notif-btn').addEventListener('click', toggleNotifications);
+      $('#export-btn').addEventListener('click', () => Store.exportBackup());
+      $('#import-btn').addEventListener('click', () => $('#import-file').click());
+      $('#import-file').addEventListener('change', async (e) => {
+        const file = e.target.files && e.target.files[0];
+        e.target.value = '';
+        if (file && await Store.importBackup(file)) dialog().close();
+      });
+      $('#reset-confirm').addEventListener('input', (e) => { $('#reset-btn').disabled = e.target.value.trim() !== 'RESET'; });
+      $('#reset-btn').addEventListener('click', () => { Store.reset(); dialog().close(); });
+      // Close when clicking the dimmed area outside the dialog.
+      dialog().addEventListener('click', (e) => { if (e.target === dialog()) dialog().close(); });
+      Store.onReplace(() => { if (dialog().open) fillForm(); });
+    }
+
+    return { init, open, get, onChange: (fn) => listeners.add(fn) };
+  })();
+
   /* ============================== BOOT ============================== */
   Store.load();
   Theme.init();
   Clock.init();
+  Settings.init();
+  Settings.onChange((path) => {
+    if (path === 'theme') Theme.apply();
+    if (path === 'clock24h') Clock.refresh();
+  });
+  Store.onReplace(() => { Theme.apply(); Clock.refresh(); });
   $('#year').textContent = new Date().getFullYear();
   </script>
 </body>
