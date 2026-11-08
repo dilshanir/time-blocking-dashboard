@@ -103,6 +103,21 @@
         border: 1px solid var(--color-line); background: var(--color-raised); color: var(--color-ink);
       }
       .field::placeholder { color: var(--color-ink-soft); opacity: 0.8; }
+      .seg {
+        min-height: 36px; padding: 0 0.875rem; border-radius: 9px;
+        font-size: 0.875rem; color: var(--color-ink-soft);
+      }
+      .seg:hover { color: var(--color-ink); }
+      .seg[aria-pressed="true"], .seg[aria-selected="true"] {
+        color: var(--color-ink);
+        background: color-mix(in srgb, var(--color-ink) 10%, transparent);
+      }
+      .row-btn {
+        display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 10px;
+        color: var(--color-ink-soft);
+      }
+      .row-btn:hover { color: var(--color-ink); background: color-mix(in srgb, var(--color-ink) 8%, transparent); }
+      .row-btn:disabled { opacity: 0.35; pointer-events: none; }
     }
   </style>
 </head>
@@ -166,8 +181,25 @@
         </section>
 
         <section id="tasks-panel" aria-labelledby="tasks-title" class="panel">
-          <h2 id="tasks-title" class="text-lg font-semibold">Tasks</h2>
-          <p class="mt-6 text-ink-soft">Your task list will appear here.</p>
+          <div class="flex items-baseline justify-between gap-3">
+            <h2 id="tasks-title" class="text-lg font-semibold">Tasks</h2>
+            <p id="task-count" class="text-sm text-ink-soft tabular-nums"></p>
+          </div>
+          <form id="task-form" class="mt-4 flex gap-2" autocomplete="off">
+            <label for="task-input" class="sr-only">New task</label>
+            <input id="task-input" class="field" type="text" maxlength="200" placeholder="Add a task and press Enter">
+            <button class="btn btn-primary shrink-0" type="submit">Add</button>
+          </form>
+          <div class="mt-4 flex flex-wrap items-center justify-between gap-2">
+            <div id="task-filters" role="group" aria-label="Show tasks" class="inline-flex rounded-xl border border-line p-1">
+              <button type="button" class="seg" data-filter="all" aria-pressed="true">All</button>
+              <button type="button" class="seg" data-filter="open" aria-pressed="false">Open</button>
+              <button type="button" class="seg" data-filter="done" aria-pressed="false">Done</button>
+            </div>
+            <button id="clear-done" type="button" class="min-h-11 rounded-lg px-2 text-sm text-ink-soft hover:text-ink">Clear completed</button>
+          </div>
+          <ul id="task-list" class="mt-3 space-y-0.5" aria-labelledby="tasks-title"></ul>
+          <p id="task-empty" class="mt-4 text-ink-soft" hidden></p>
         </section>
       </div>
     </main>
@@ -320,6 +352,15 @@
     const d = new Date(2000, 0, 1, Math.floor(min / 60), min % 60);
     return new Intl.DateTimeFormat(undefined, opts).format(d);
   }
+
+  /** Block colours. Full literal class strings so Tailwind can find them (never build class names). */
+  const COLOR_CLASSES = {
+    cyan:    { label: 'Cyan',    dot: 'bg-cyan-600 dark:bg-cyan-400',       card: 'bg-cyan-500/10 dark:bg-cyan-400/15 border-cyan-600/40 dark:border-cyan-400/40' },
+    violet:  { label: 'Violet',  dot: 'bg-violet-600 dark:bg-violet-400',   card: 'bg-violet-500/10 dark:bg-violet-400/15 border-violet-600/40 dark:border-violet-400/40' },
+    pink:    { label: 'Pink',    dot: 'bg-pink-600 dark:bg-pink-400',       card: 'bg-pink-500/10 dark:bg-pink-400/15 border-pink-600/40 dark:border-pink-400/40' },
+    amber:   { label: 'Amber',   dot: 'bg-amber-500 dark:bg-amber-400',     card: 'bg-amber-500/15 dark:bg-amber-400/15 border-amber-600/50 dark:border-amber-400/40' },
+    emerald: { label: 'Emerald', dot: 'bg-emerald-600 dark:bg-emerald-400', card: 'bg-emerald-500/10 dark:bg-emerald-400/15 border-emerald-600/40 dark:border-emerald-400/40' },
+  };
 
   function uid(prefix) {
     const id = (window.crypto && crypto.randomUUID)
@@ -572,6 +613,7 @@
         });
       }
       day.focusCount = Number.isInteger(input.focusCount) && input.focusCount >= 0 ? input.focusCount : 0;
+      if (input.carryChecked === true) day.carryChecked = true;
       return { day, dropped };
     }
 
@@ -765,6 +807,233 @@
     };
   })();
 
+  /* ============================== TASKS ============================== */
+  const Tasks = (() => {
+    let filter = 'all';
+    let editingId = null;
+    const listeners = new Set(); // notified when task <-> block links change
+    const today = () => Store.day(Clock.today());
+
+    function ordered() {
+      const list = today().tasks;
+      return [...list.filter((t) => !t.done), ...list.filter((t) => t.done)];
+    }
+
+    function blockFor(task) {
+      return task.blockId ? today().blocks.find((b) => b.id === task.blockId) : null;
+    }
+
+    function add(text) {
+      const clean = text.trim().slice(0, 200);
+      if (!clean) return false;
+      today().tasks.push({ id: uid('t'), text: clean, done: false, blockId: null, createdAt: Date.now(), doneAt: null });
+      Store.save();
+      render();
+      announce(`Added task: ${clean}`);
+      return true;
+    }
+
+    function toggle(id, done) {
+      const task = today().tasks.find((t) => t.id === id);
+      if (!task) return;
+      task.done = done;
+      task.doneAt = done ? Date.now() : null;
+      Store.save();
+      render({ focus: { id, role: 'check' } });
+    }
+
+    function remove(id) {
+      const list = today().tasks;
+      const index = list.findIndex((t) => t.id === id);
+      if (index < 0) return;
+      const [task] = list.splice(index, 1);
+      const dayRef = today();
+      Store.save();
+      render();
+      $('#task-input').focus();
+      toast('Task deleted.', {
+        actionLabel: 'Undo',
+        onAction: () => {
+          dayRef.tasks.splice(Math.min(index, dayRef.tasks.length), 0, task);
+          Store.save();
+          render({ focus: { id: task.id, role: 'check' } });
+        },
+      });
+    }
+
+    /** Move within the visible group (open or done) by swapping with the neighbour. */
+    function move(id, dir) {
+      const visible = ordered();
+      const i = visible.findIndex((t) => t.id === id);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= visible.length || visible[i].done !== visible[j].done) return;
+      const list = today().tasks;
+      const a = list.indexOf(visible[i]), b = list.indexOf(visible[j]);
+      [list[a], list[b]] = [list[b], list[a]];
+      Store.save();
+      render({ focus: { id, role: dir < 0 ? 'up' : 'down' } });
+      announce(dir < 0 ? 'Moved up' : 'Moved down');
+    }
+
+    function saveEdit(id, text, blockId) {
+      const task = today().tasks.find((t) => t.id === id);
+      const clean = text.trim().slice(0, 200);
+      if (task && clean) {
+        task.text = clean;
+        task.blockId = blockId || null;
+        Store.save();
+      }
+      editingId = null;
+      render({ focus: { id, role: 'edit' } });
+      listeners.forEach((fn) => fn());
+    }
+
+    function clearDone() {
+      const done = today().tasks.filter((t) => t.done).length;
+      if (!done) { toast('There are no completed tasks to clear.'); return; }
+      if (!window.confirm(`Remove ${done} completed task${done === 1 ? '' : 's'}?`)) return;
+      today().tasks = today().tasks.filter((t) => !t.done);
+      Store.save();
+      render();
+      toast(`Cleared ${done} completed task${done === 1 ? '' : 's'}.`);
+    }
+
+    function blockChip(block) {
+      if (!block) return null;
+      return el('span', { class: 'mt-1 inline-flex items-center gap-1.5 text-xs text-ink-soft' },
+        el('span', { class: `size-2 rounded-full ${COLOR_CLASSES[block.color].dot}`, 'aria-hidden': 'true' }),
+        el('span', { class: 'sr-only', text: 'Time block: ' }),
+        `${block.title} · ${fmtMin(toMin(block.start))}`);
+    }
+
+    function editRow(task) {
+      const blocks = today().blocks;
+      const input = el('input', { class: 'field', type: 'text', value: task.text, maxlength: '200', 'aria-label': 'Task text' });
+      const select = el('select', { class: 'field', 'aria-label': 'Time block', disabled: blocks.length === 0 },
+        el('option', { value: '', text: blocks.length ? 'No time block' : 'No time blocks today' }),
+        [...blocks].sort((a, b) => toMin(a.start) - toMin(b.start))
+          .map((b) => el('option', { value: b.id, text: `${fmtMin(toMin(b.start))} – ${b.title}`, selected: b.id === task.blockId })));
+      const form = el('form', {
+        class: 'flex w-full flex-col gap-2 py-1',
+        onsubmit: (e) => { e.preventDefault(); saveEdit(task.id, input.value, select.value); },
+        onkeydown: (e) => { if (e.key === 'Escape') { e.preventDefault(); editingId = null; render({ focus: { id: task.id, role: 'edit' } }); } },
+      },
+        input,
+        select,
+        el('div', { class: 'flex justify-end gap-2' },
+          el('button', { type: 'button', class: 'btn', text: 'Cancel', onclick: () => { editingId = null; render({ focus: { id: task.id, role: 'edit' } }); } }),
+          el('button', { type: 'submit', class: 'btn btn-primary', text: 'Save' })));
+      setTimeout(() => { input.focus(); input.select(); }, 0);
+      return el('li', { class: 'rounded-xl bg-raised px-2 py-1', dataset: { taskId: task.id } }, form);
+    }
+
+    function row(task, index, group) {
+      if (task.id === editingId) return editRow(task);
+      const checkId = `chk-${task.id}`;
+      const actions = 'flex shrink-0 items-center pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:group-focus-within:opacity-100';
+      return el('li', { class: 'group flex items-start gap-3 rounded-xl px-2 hover:bg-ink/5', dataset: { taskId: task.id } },
+        el('input', {
+          type: 'checkbox', id: checkId, checked: task.done, dataset: { role: 'check' },
+          class: 'mt-3 size-5 shrink-0 cursor-pointer accent-[var(--color-calm)]',
+          onchange: (e) => toggle(task.id, e.target.checked),
+        }),
+        el('div', { class: 'min-w-0 flex-1 py-2.5' },
+          el('label', {
+            for: checkId, text: task.text,
+            class: task.done ? 'block cursor-pointer break-words text-ink-soft line-through' : 'block cursor-pointer break-words',
+            ondblclick: (e) => { e.preventDefault(); editingId = task.id; render(); },
+          }),
+          blockChip(blockFor(task))),
+        el('div', { class: actions },
+          el('button', { type: 'button', class: 'row-btn', 'aria-label': `Edit "${task.text}"`, dataset: { role: 'edit' },
+            onclick: () => { editingId = task.id; render(); } }, icon('pencil')),
+          el('button', { type: 'button', class: 'row-btn', 'aria-label': `Move "${task.text}" up`, dataset: { role: 'up' },
+            disabled: index === 0 || group[index - 1].done !== task.done, onclick: () => move(task.id, -1) }, icon('up')),
+          el('button', { type: 'button', class: 'row-btn', 'aria-label': `Move "${task.text}" down`, dataset: { role: 'down' },
+            disabled: index === group.length - 1 || group[index + 1].done !== task.done, onclick: () => move(task.id, 1) }, icon('down')),
+          el('button', { type: 'button', class: 'row-btn hover:text-hot', 'aria-label': `Delete "${task.text}"`, dataset: { role: 'delete' },
+            onclick: () => remove(task.id) }, icon('trash'))));
+    }
+
+    function render({ focus } = {}) {
+      const all = ordered();
+      const done = all.filter((t) => t.done).length;
+      const shown = all.filter((t) => filter === 'all' || (filter === 'open' ? !t.done : t.done));
+      $('#task-count').textContent = all.length ? `${done} of ${all.length} done` : '';
+      $('#task-list').replaceChildren(...shown.map((t, i) => row(t, i, shown)));
+      const empty = $('#task-empty');
+      empty.hidden = shown.length > 0;
+      empty.textContent = all.length === 0
+        ? 'Nothing planned yet. Add the first thing you want to finish today.'
+        : filter === 'open' ? 'Everything is done. Nice work.' : 'Nothing finished yet.';
+      $('#clear-done').hidden = done === 0;
+      for (const btn of document.querySelectorAll('#task-filters [data-filter]')) {
+        btn.setAttribute('aria-pressed', String(btn.dataset.filter === filter));
+      }
+      if (focus) {
+        const target = document.querySelector(`[data-task-id="${focus.id}"] [data-role="${focus.role}"]`);
+        if (target && !target.disabled) target.focus();
+        else { const fallback = document.querySelector(`[data-task-id="${focus.id}"] [data-role="check"]`); if (fallback) fallback.focus(); }
+      }
+    }
+
+    /* ---- carry unfinished tasks over to a new day ---- */
+    function previousOpenDay(todayKey) {
+      const keys = Object.keys(Store.state.days).filter((k) => k < todayKey).sort().reverse();
+      const limit = dateFromKey(todayKey); limit.setDate(limit.getDate() - 7);
+      for (const k of keys) {
+        if (dateFromKey(k) < limit) break;
+        if (Store.state.days[k].tasks.some((t) => !t.done)) return k;
+      }
+      return null;
+    }
+
+    function offerCarryOver() {
+      const key = Clock.today();
+      Banner.hide('carry');
+      if (Store.hasDay(key) && Store.day(key).carryChecked) return;
+      const from = previousOpenDay(key);
+      if (!from) return;
+      const open = Store.state.days[from].tasks.filter((t) => !t.done);
+      const label = new Intl.DateTimeFormat(undefined, { weekday: 'long', day: 'numeric', month: 'long' }).format(dateFromKey(from));
+      Banner.show('carry', `You have ${open.length} unfinished task${open.length === 1 ? '' : 's'} from ${label}. Move ${open.length === 1 ? 'it' : 'them'} to today?`, [
+        { label: 'Not now', onClick: () => { Store.day(key).carryChecked = true; Store.save(); } },
+        { label: 'Move to today', primary: true, onClick: () => {
+          const source = Store.state.days[from];
+          const moving = source.tasks.filter((t) => !t.done);
+          source.tasks = source.tasks.filter((t) => t.done);
+          const target = Store.day(key);
+          target.tasks.push(...moving.map((t) => ({ ...t, id: uid('t'), blockId: null })));
+          target.carryChecked = true;
+          Store.save();
+          render();
+          toast(`Moved ${moving.length} task${moving.length === 1 ? '' : 's'} to today.`);
+        } },
+      ]);
+    }
+
+    function init() {
+      $('#task-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const input = $('#task-input');
+        if (add(input.value)) input.value = '';
+      });
+      $('#task-filters').addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-filter]');
+        if (!btn) return;
+        filter = btn.dataset.filter;
+        render();
+      });
+      $('#clear-done').addEventListener('click', clearDone);
+      Clock.onDayChange(() => { editingId = null; render(); offerCarryOver(); });
+      Store.onReplace(() => { editingId = null; render(); offerCarryOver(); });
+      render();
+      offerCarryOver();
+    }
+
+    return { init, render, onLinkChange: (fn) => listeners.add(fn) };
+  })();
+
   /* ============================== SETTINGS ============================== */
   const Settings = (() => {
     const listeners = new Set();
@@ -889,9 +1158,10 @@
   Theme.init();
   Clock.init();
   Settings.init();
+  Tasks.init();
   Settings.onChange((path) => {
     if (path === 'theme') Theme.apply();
-    if (path === 'clock24h') Clock.refresh();
+    if (path === 'clock24h') { Clock.refresh(); Tasks.render(); }
   });
   Store.onReplace(() => { Theme.apply(); Clock.refresh(); });
   $('#year').textContent = new Date().getFullYear();
