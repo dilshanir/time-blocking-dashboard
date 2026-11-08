@@ -83,6 +83,7 @@
         box-shadow: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 20px 50px -30px rgb(0 0 0 / 0.55);
       }
       @media (min-width: 640px) { .panel { padding: 1.5rem; } }
+      html:not(.dark) .panel { box-shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 16px 36px -28px rgb(15 23 42 / 0.35); }
       .btn {
         display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
         min-height: 44px; padding: 0 1rem; border-radius: 12px;
@@ -118,6 +119,12 @@
       }
       .row-btn:hover { color: var(--color-ink); background: color-mix(in srgb, var(--color-ink) 8%, transparent); }
       .row-btn:disabled { opacity: 0.35; pointer-events: none; }
+      /* overlapping blocks get a striped edge (plus a text label, so it isn't colour-only) */
+      .overlap::after {
+        content: ''; position: absolute; inset: 0 auto 0 0; width: 10px; pointer-events: none;
+        background-image: repeating-linear-gradient(135deg, var(--color-hot) 0 2px, transparent 2px 6px);
+        opacity: 0.8;
+      }
     }
   </style>
 </head>
@@ -168,10 +175,22 @@
     <!-- ============ APP ============ -->
     <main id="app" class="mx-auto mt-6 grid max-w-[1200px] gap-5 px-4 pb-16 sm:px-6 lg:grid-cols-12">
       <section id="timeline-panel" aria-labelledby="timeline-title" class="panel order-2 lg:order-1 lg:col-span-7">
-        <div class="flex items-center justify-between gap-3">
-          <h2 id="timeline-title" class="text-lg font-semibold">Today's blocks</h2>
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <h2 id="timeline-title" class="text-lg font-semibold">Today's blocks</h2>
+            <p id="timeline-summary" class="mt-0.5 text-sm text-ink-soft"></p>
+          </div>
+          <button id="add-block-btn" type="button" class="btn btn-primary shrink-0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            New block
+          </button>
         </div>
-        <p class="mt-6 text-ink-soft">Your time blocks will appear here.</p>
+        <p id="timeline-note" class="mt-3 text-sm text-hot" hidden></p>
+        <div id="timeline-scroll" class="relative mt-4 max-h-[min(72vh,760px)] overflow-y-auto overscroll-contain pr-1">
+          <div class="pb-3 pt-3">
+            <div id="timeline" class="relative"></div>
+          </div>
+        </div>
       </section>
 
       <div class="order-1 flex flex-col gap-5 lg:order-2 lg:col-span-5">
@@ -208,6 +227,46 @@
       <p>Built by Dilshani Rathnayake · <span id="year"></span>. Your data never leaves your browser.</p>
     </footer>
   </div>
+
+  <!-- ============ BLOCK DIALOG ============ -->
+  <dialog id="block-dialog" aria-labelledby="block-dialog-title"
+    class="m-auto max-h-[90dvh] w-[min(calc(100%-2rem),30rem)] overflow-y-auto rounded-[22px] border border-line bg-raised p-0 text-ink shadow-2xl">
+    <form id="block-form" class="space-y-5 px-5 py-6 sm:px-6" novalidate>
+      <h2 id="block-dialog-title" class="text-lg font-semibold">New block</h2>
+      <label class="block text-sm text-ink-soft">What will you work on?
+        <input id="block-title" type="text" maxlength="80" required class="field mt-1 text-base" placeholder="e.g. Deep work on the report">
+      </label>
+      <div class="grid grid-cols-2 gap-3">
+        <label class="block text-sm text-ink-soft">Starts
+          <select id="block-start" class="field mt-1 text-base"></select>
+        </label>
+        <label class="block text-sm text-ink-soft">Ends
+          <select id="block-end" class="field mt-1 text-base"></select>
+        </label>
+      </div>
+      <fieldset>
+        <legend class="text-sm text-ink-soft">Colour</legend>
+        <div class="mt-2 flex gap-3">
+          <label class="relative cursor-pointer"><input type="radio" name="block-color" value="cyan" class="peer sr-only"><span class="block size-9 rounded-full bg-cyan-600 ring-offset-2 ring-offset-raised peer-checked:ring-2 peer-checked:ring-ink peer-focus-visible:outline-2 peer-focus-visible:outline-offset-4 peer-focus-visible:outline-calm dark:bg-cyan-400"></span><span class="sr-only">Cyan</span></label>
+          <label class="relative cursor-pointer"><input type="radio" name="block-color" value="violet" class="peer sr-only"><span class="block size-9 rounded-full bg-violet-600 ring-offset-2 ring-offset-raised peer-checked:ring-2 peer-checked:ring-ink peer-focus-visible:outline-2 peer-focus-visible:outline-offset-4 peer-focus-visible:outline-calm dark:bg-violet-400"></span><span class="sr-only">Violet</span></label>
+          <label class="relative cursor-pointer"><input type="radio" name="block-color" value="pink" class="peer sr-only"><span class="block size-9 rounded-full bg-pink-600 ring-offset-2 ring-offset-raised peer-checked:ring-2 peer-checked:ring-ink peer-focus-visible:outline-2 peer-focus-visible:outline-offset-4 peer-focus-visible:outline-calm dark:bg-pink-400"></span><span class="sr-only">Pink</span></label>
+          <label class="relative cursor-pointer"><input type="radio" name="block-color" value="amber" class="peer sr-only"><span class="block size-9 rounded-full bg-amber-500 ring-offset-2 ring-offset-raised peer-checked:ring-2 peer-checked:ring-ink peer-focus-visible:outline-2 peer-focus-visible:outline-offset-4 peer-focus-visible:outline-calm dark:bg-amber-400"></span><span class="sr-only">Amber</span></label>
+          <label class="relative cursor-pointer"><input type="radio" name="block-color" value="emerald" class="peer sr-only"><span class="block size-9 rounded-full bg-emerald-600 ring-offset-2 ring-offset-raised peer-checked:ring-2 peer-checked:ring-ink peer-focus-visible:outline-2 peer-focus-visible:outline-offset-4 peer-focus-visible:outline-calm dark:bg-emerald-400"></span><span class="sr-only">Emerald</span></label>
+        </div>
+      </fieldset>
+      <label class="block text-sm text-ink-soft">Note (optional)
+        <textarea id="block-note" maxlength="200" rows="2" class="field mt-1 py-2 text-base"></textarea>
+      </label>
+      <p id="block-error" class="text-sm text-hot" role="alert" hidden></p>
+      <div class="flex items-center justify-between gap-2 pt-1">
+        <button id="block-delete" type="button" class="btn text-hot">Delete</button>
+        <div class="ml-auto flex gap-2">
+          <button id="block-cancel" type="button" class="btn">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save block</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
 
   <!-- ============ SETTINGS DIALOG ============ -->
   <dialog id="settings-dialog" aria-labelledby="settings-title"
@@ -361,6 +420,16 @@
     amber:   { label: 'Amber',   dot: 'bg-amber-500 dark:bg-amber-400',     card: 'bg-amber-500/15 dark:bg-amber-400/15 border-amber-600/50 dark:border-amber-400/40' },
     emerald: { label: 'Emerald', dot: 'bg-emerald-600 dark:bg-emerald-400', card: 'bg-emerald-500/10 dark:bg-emerald-400/15 border-emerald-600/40 dark:border-emerald-400/40' },
   };
+
+  /** Hour label for the timeline: "2 PM" or "14:00". */
+  function fmtHour(min) {
+    const pref = Store.state.settings.clock24h;
+    const opts = { hour: 'numeric' };
+    if (pref !== null) opts.hour12 = !pref;
+    const fmt = new Intl.DateTimeFormat(undefined, opts);
+    if (!fmt.resolvedOptions().hour12) return `${pad(Math.floor(min / 60) % 24)}:00`;
+    return fmt.format(new Date(2000, 0, 1, Math.floor(min / 60), 0));
+  }
 
   function uid(prefix) {
     const id = (window.crypto && crypto.randomUUID)
@@ -812,6 +881,7 @@
     let filter = 'all';
     let editingId = null;
     const listeners = new Set(); // notified when task <-> block links change
+    const linksChanged = () => listeners.forEach((fn) => fn());
     const today = () => Store.day(Clock.today());
 
     function ordered() {
@@ -850,6 +920,7 @@
       const dayRef = today();
       Store.save();
       render();
+      linksChanged();
       $('#task-input').focus();
       toast('Task deleted.', {
         actionLabel: 'Undo',
@@ -857,6 +928,7 @@
           dayRef.tasks.splice(Math.min(index, dayRef.tasks.length), 0, task);
           Store.save();
           render({ focus: { id: task.id, role: 'check' } });
+          linksChanged();
         },
       });
     }
@@ -885,7 +957,7 @@
       }
       editingId = null;
       render({ focus: { id, role: 'edit' } });
-      listeners.forEach((fn) => fn());
+      linksChanged();
     }
 
     function clearDone() {
@@ -895,6 +967,7 @@
       today().tasks = today().tasks.filter((t) => !t.done);
       Store.save();
       render();
+      linksChanged();
       toast(`Cleared ${done} completed task${done === 1 ? '' : 's'}.`);
     }
 
@@ -1034,6 +1107,270 @@
     return { init, render, onLinkChange: (fn) => listeners.add(fn) };
   })();
 
+  /* ============================== BLOCKS ============================== */
+  const Blocks = (() => {
+    const PX_PER_MIN = { 15: 28 / 15, 30: 44 / 30, 60: 64 / 60 };
+    const changeListeners = new Set();
+    const focusListeners = new Set();
+    let editingId = null;
+    let lastFocus = null;
+
+    const today = () => Store.day(Clock.today());
+    const range = () => {
+      const s = Store.state.settings;
+      return { start: toMin(s.dayStart), end: toMin(s.dayEnd), slot: s.slotMinutes };
+    };
+    const nowMin = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60; };
+    const span = (b) => [toMin(b.start), toMin(b.end)];
+    const timeRange = (b) => `${fmtMin(toMin(b.start))} – ${fmtMin(toMin(b.end))}`;
+    function duration(min) {
+      const h = Math.floor(min / 60), m = min % 60;
+      return h && m ? `${h} h ${m} min` : h ? `${h} h` : `${m} min`;
+    }
+
+    /** Side-by-side lanes for overlapping blocks. */
+    function layout(blocks) {
+      const sorted = [...blocks].sort((a, b) => span(a)[0] - span(b)[0] || span(b)[1] - span(a)[1]);
+      const info = new Map();
+      let cluster = [], clusterEnd = -1;
+      const close = () => {
+        const laneEnds = [];
+        for (const b of cluster) {
+          let lane = laneEnds.findIndex((end) => end <= span(b)[0]);
+          if (lane === -1) { lane = laneEnds.length; laneEnds.push(0); }
+          laneEnds[lane] = span(b)[1];
+          info.set(b.id, { lane });
+        }
+        for (const b of cluster) info.get(b.id).lanes = laneEnds.length;
+        cluster = []; clusterEnd = -1;
+      };
+      for (const b of sorted) {
+        if (cluster.length && span(b)[0] >= clusterEnd) close();
+        cluster.push(b);
+        clusterEnd = Math.max(clusterEnd, span(b)[1]);
+      }
+      if (cluster.length) close();
+      for (const b of sorted) {
+        info.get(b.id).overlaps = sorted.some((o) => o !== b && span(o)[0] < span(b)[1] && span(o)[1] > span(b)[0]);
+      }
+      return { sorted, info };
+    }
+
+    function render() {
+      const { start, end, slot } = range();
+      const px = PX_PER_MIN[slot] || PX_PER_MIN[30];
+      const day = today();
+      const now = nowMin();
+      const timeline = $('#timeline');
+      timeline.style.height = `${Math.round((end - start) * px)}px`;
+      const nodes = [];
+
+      // grid rows + invisible "create here" targets (mouse convenience; keyboard users use "New block")
+      for (let m = start; m < end; m += slot) {
+        const top = Math.round((m - start) * px);
+        const onHour = m % 60 === 0;
+        nodes.push(el('div', { class: onHour ? 'absolute left-16 right-0 border-t border-line' : 'absolute left-16 right-0 border-t border-dashed border-line', style: `top:${top}px` },
+          onHour ? el('span', { class: 'absolute right-full -top-2 mr-2 whitespace-nowrap text-xs text-ink-soft tabular-nums', text: fmtHour(m) }) : null));
+        nodes.push(el('button', {
+          type: 'button', tabIndex: -1, 'aria-hidden': 'true',
+          class: 'absolute left-16 right-0 rounded-lg hover:bg-ink/5',
+          style: `top:${top}px;height:${Math.round(slot * px)}px`,
+          onclick: () => openEditor(null, m),
+        }));
+      }
+
+      // blocks
+      const visible = day.blocks.filter((b) => span(b)[1] > start && span(b)[0] < end);
+      const hiddenCount = day.blocks.length - visible.length;
+      const { sorted, info } = layout(visible);
+      const list = el('ul', { class: 'pointer-events-none absolute inset-y-0 left-16 right-0', 'aria-label': 'Time blocks, in order' });
+      for (const b of sorted) {
+        const [s0, e0] = span(b);
+        const s = Math.max(s0, start), e = Math.min(e0, end);
+        const top = Math.round((s - start) * px) + 1;
+        const height = Math.max(Math.round((e - s) * px) - 3, 22);
+        const { lane, lanes, overlaps } = info.get(b.id);
+        const gap = 6;
+        const width = `calc((100% - ${(lanes - 1) * gap}px) / ${lanes})`;
+        const left = `calc(${lane} * ((100% - ${(lanes - 1) * gap}px) / ${lanes} + ${gap}px))`;
+        const current = now >= s0 && now < e0;
+        const linked = day.tasks.filter((t) => t.blockId === b.id).length;
+        const roomy = height >= 56;
+        const tiny = height < 38;
+
+        const label = `${b.title}, ${timeRange(b)}${overlaps ? ', overlaps another block' : ''}${current ? ', happening now' : ''}. Edit block`;
+        const meta = [];
+        if (linked) meta.push(`${linked} task${linked === 1 ? '' : 's'}`);
+        if (overlaps) meta.push('Overlaps');
+
+        const card = el('div', {
+          class: `relative h-full overflow-hidden rounded-[10px] border ${COLOR_CLASSES[b.color].card}${current ? ' ring-2 ring-calm' : ''}${overlaps ? ' overlap' : ''}`,
+        },
+          el('span', { class: `absolute inset-y-0 left-0 w-1 ${COLOR_CLASSES[b.color].dot}`, 'aria-hidden': 'true' }),
+          el('button', {
+            type: 'button', 'aria-label': label, dataset: { blockId: b.id, role: 'edit-block' },
+            class: tiny ? 'absolute inset-0 flex items-center gap-2 pl-3 pr-11 text-left' : 'absolute inset-0 flex flex-col pl-3 pr-11 pt-1.5 text-left',
+            onclick: () => openEditor(b.id),
+          },
+            el('span', { class: 'truncate text-sm font-medium', text: b.title }),
+            el('span', { class: 'truncate text-xs text-ink-soft tabular-nums', text: timeRange(b) }),
+            roomy && meta.length ? el('span', { class: `mt-1 truncate text-xs ${overlaps ? 'text-hot' : 'text-ink-soft'}`, text: meta.join(' · ') }) : null),
+          el('button', {
+            type: 'button', class: 'row-btn absolute right-0.5 top-0.5 size-9', 'aria-label': `Focus on ${b.title}`,
+            title: 'Start a focus session for this block', dataset: { role: 'focus-block' },
+            onclick: () => requestFocus(b),
+          }, icon('target', 16)));
+
+        list.append(el('li', { class: 'pointer-events-auto absolute rounded-[10px] bg-raised', style: `top:${top}px;height:${height}px;left:${left};width:${width}` }, card));
+      }
+      nodes.push(list);
+
+      // the "now" line
+      if (now >= start && now < end) {
+        const top = Math.round((now - start) * px);
+        nodes.push(el('div', { id: 'now-line', class: 'pointer-events-none absolute left-12 right-0 z-10', style: `top:${top}px`, 'aria-hidden': 'true' },
+          el('span', { class: 'absolute -left-1 -top-[5px] size-2.5 rounded-full bg-calm shadow-[0_0_12px_var(--color-calm)]' }),
+          el('span', { class: 'absolute inset-x-0 top-0 h-0.5 bg-calm shadow-[0_0_10px_var(--color-calm)]' })));
+      }
+      timeline.replaceChildren(...nodes);
+
+      // summary + notes
+      const total = day.blocks.reduce((sum, b) => sum + (span(b)[1] - span(b)[0]), 0);
+      $('#timeline-summary').textContent = day.blocks.length
+        ? `${day.blocks.length} block${day.blocks.length === 1 ? '' : 's'}, ${duration(total)} planned`
+        : 'Click a time on the timeline, or use New block, to plan your day.';
+      const note = $('#timeline-note');
+      note.hidden = hiddenCount === 0;
+      note.textContent = hiddenCount
+        ? `${hiddenCount} block${hiddenCount === 1 ? ' is' : 's are'} outside your day hours. Change the hours in Settings to see ${hiddenCount === 1 ? 'it' : 'them'}.`
+        : '';
+    }
+
+    function scrollToNow() {
+      const { start, end, slot } = range();
+      const now = nowMin();
+      if (now < start || now >= end) return;
+      const px = PX_PER_MIN[slot] || PX_PER_MIN[30];
+      $('#timeline-scroll').scrollTop = Math.max(0, (now - start) * px - 120);
+    }
+
+    function requestFocus(block) {
+      if (!focusListeners.size) { toast('The focus timer is not available yet.'); return; }
+      focusListeners.forEach((fn) => fn(block));
+    }
+
+    /* ---- editor dialog ---- */
+    function fillTimes(select, from, to, step, current) {
+      const values = new Set();
+      for (let m = from; m <= to; m += step) values.add(m);
+      values.add(current);
+      select.replaceChildren(...[...values].sort((a, b) => a - b)
+        .map((m) => el('option', { value: fromMin(m), text: m === 1440 ? 'Midnight' : fmtMin(m) })));
+      select.value = fromMin(current);
+    }
+
+    function defaultStart() {
+      const { start, end, slot } = range();
+      const next = Math.ceil(nowMin() / slot) * slot;
+      return next >= start && next <= end - slot ? next : start;
+    }
+
+    function openEditor(id, atMin) {
+      const { start, end, slot } = range();
+      const block = id ? today().blocks.find((b) => b.id === id) : null;
+      editingId = block ? block.id : null;
+      lastFocus = document.activeElement;
+      let s, e;
+      if (block) { [s, e] = span(block); }
+      else {
+        s = atMin !== undefined ? atMin : defaultStart();
+        e = Math.min(s + 60, end);
+        if (e <= s) e = Math.min(s + slot, 1440);
+      }
+      fillTimes($('#block-start'), start, end - slot, slot, s);
+      fillTimes($('#block-end'), start + slot, end, slot, e);
+      $('#block-title').value = block ? block.title : '';
+      $('#block-note').value = block ? block.note : '';
+      const color = block ? block.color : 'cyan';
+      for (const r of document.querySelectorAll('input[name="block-color"]')) r.checked = r.value === color;
+      $('#block-dialog-title').textContent = block ? 'Edit block' : 'New block';
+      $('#block-delete').hidden = !block;
+      $('#block-error').hidden = true;
+      $('#block-dialog').showModal();
+      $('#block-title').focus();
+    }
+
+    function closeEditor() {
+      $('#block-dialog').close();
+    }
+
+    function save(e) {
+      e.preventDefault();
+      const title = $('#block-title').value.trim().slice(0, 80);
+      const startVal = $('#block-start').value, endVal = $('#block-end').value;
+      const error = $('#block-error');
+      let message = '';
+      if (!title) message = 'Give the block a title.';
+      else if (toMin(endVal) <= toMin(startVal)) message = 'The block must end after it starts.';
+      if (message) {
+        error.textContent = message; error.hidden = false;
+        (title ? $('#block-end') : $('#block-title')).focus();
+        return;
+      }
+      const color = (document.querySelector('input[name="block-color"]:checked') || {}).value || 'cyan';
+      const note = $('#block-note').value.trim().slice(0, 200);
+      const day = today();
+      let block = editingId ? day.blocks.find((b) => b.id === editingId) : null;
+      if (block) Object.assign(block, { title, start: startVal, end: endVal, color, note });
+      else { block = { id: uid('b'), title, start: startVal, end: endVal, color, note }; day.blocks.push(block); }
+      Store.save();
+      closeEditor();
+      render();
+      changeListeners.forEach((fn) => fn());
+      announce(`Saved block ${title}, ${timeRange(block)}`);
+      const btn = document.querySelector(`[data-block-id="${block.id}"]`);
+      if (btn) btn.focus();
+    }
+
+    function remove() {
+      const day = today();
+      const block = day.blocks.find((b) => b.id === editingId);
+      if (!block || !window.confirm(`Delete the block "${block.title}"?`)) return;
+      day.blocks = day.blocks.filter((b) => b.id !== block.id);
+      day.tasks.forEach((t) => { if (t.blockId === block.id) t.blockId = null; });
+      Store.save();
+      closeEditor();
+      render();
+      changeListeners.forEach((fn) => fn());
+      toast('Block deleted.');
+      $('#add-block-btn').focus();
+    }
+
+    function init() {
+      $('#add-block-btn').addEventListener('click', () => openEditor(null));
+      $('#block-form').addEventListener('submit', save);
+      $('#block-cancel').addEventListener('click', closeEditor);
+      $('#block-delete').addEventListener('click', remove);
+      $('#block-dialog').addEventListener('close', () => {
+        editingId = null;
+        if (lastFocus && document.contains(lastFocus)) lastFocus.focus();
+        lastFocus = null;
+      });
+      $('#block-dialog').addEventListener('click', (e) => { if (e.target === $('#block-dialog')) closeEditor(); });
+      Clock.onMinute(render);
+      Clock.onDayChange(() => { render(); scrollToNow(); });
+      Store.onReplace(render);
+      render();
+      scrollToNow();
+    }
+
+    return {
+      init, render,
+      onChange: (fn) => changeListeners.add(fn),
+      onFocusRequest: (fn) => focusListeners.add(fn),
+    };
+  })();
+
   /* ============================== SETTINGS ============================== */
   const Settings = (() => {
     const listeners = new Set();
@@ -1159,9 +1496,13 @@
   Clock.init();
   Settings.init();
   Tasks.init();
+  Blocks.init();
+  Blocks.onChange(() => Tasks.render());
+  Tasks.onLinkChange(() => Blocks.render());
   Settings.onChange((path) => {
     if (path === 'theme') Theme.apply();
-    if (path === 'clock24h') { Clock.refresh(); Tasks.render(); }
+    if (path === 'clock24h') { Clock.refresh(); Tasks.render(); Blocks.render(); }
+    if (path === 'dayStart' || path === 'dayEnd' || path === 'slotMinutes') Blocks.render();
   });
   Store.onReplace(() => { Theme.apply(); Clock.refresh(); });
   $('#year').textContent = new Date().getFullYear();
